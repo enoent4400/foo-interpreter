@@ -1,6 +1,16 @@
 package com.interpreter.foo;
 
 public class Interpreter implements Expr.Visitor<Object> {
+
+    public void interpret(Expr expr) {
+        try {
+            Object value = evaluate(expr);
+            System.out.println(stringify(value));
+        } catch (RuntimeError error) {
+            Foo.runtimeError(error);
+        }
+    }
+
     @Override
     public Object visitLiteralExpr(Expr.Literal expr) {
         return expr.value;
@@ -22,14 +32,19 @@ public class Interpreter implements Expr.Visitor<Object> {
 
         switch (expr.operator.type) {
             case GREATER:
+                checkNumberOperand(expr.operator, left);
                 return (double) left > (double) right;
             case GREATER_EQUAL:
+                checkNumberOperand(expr.operator, left);
                 return (double) left >= (double) right;
             case LESS:
+                checkNumberOperand(expr.operator, left);
                 return (double) left < (double) right;
             case LESS_EQUAL:
+                checkNumberOperand(expr.operator, left);
                 return (double) left <= (double) right;
             case MINUS:
+                checkNumberOperand(expr.operator, left);
                 return (double) left - (double) right;
             case SLASH:
                 return (double) left / (double) right;
@@ -43,6 +58,8 @@ public class Interpreter implements Expr.Visitor<Object> {
                 if (left instanceof String && right instanceof String) {
                     return (String) left + (String) right;
                 }
+
+                throw new RuntimeError(expr.operator, "Operands must be two numbers or two strings.");
             case BANG_EQUAL: return !isEqual(left, right);
             case EQUAL_EQUAL: return isEqual(left, right);
         }
@@ -59,11 +76,17 @@ public class Interpreter implements Expr.Visitor<Object> {
             case BANG:
                 return !isTruthy(right);
             case MINUS:
+                checkNumberOperand(expr.operator, right);               
                 return -(double) right;   
         }
 
         // Unreachable.
         return null;
+    }
+
+    private void checkNumberOperand(Token operator, Object operand) {
+        if (operand instanceof Double) return;
+        throw new RuntimeError(operator, "Operand must be a number.");
     }
 
     private boolean isTruthy(Object object) {
@@ -78,6 +101,21 @@ public class Interpreter implements Expr.Visitor<Object> {
         if (a == null) return false;
 
         return a.equals(b);
+    }
+
+    private String stringify(Object object) {
+        if (object == null) return "nil";
+
+        // Hack. Work around Java adding ".0" to integer-valued doubles.
+        if (object instanceof Double) {
+            String text = object.toString();
+            if (text.endsWith(".0")) {
+                text = text.substring(0, text.length() - 2);
+            }
+            return text;
+        }
+
+        return object.toString();
     }
     
 }
